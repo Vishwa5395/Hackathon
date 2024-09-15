@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Compression</title>
+
+    <!-- LZMA JavaScript Library for File Compression -->
+    <script src="https://cdn.jsdelivr.net/npm/lzma@2.3.2/src/lzma_worker-min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #file_output {
+            margin-top: 20px;
+        }
+        #download_link {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <header class="header">
+  <div class="left">
+    <h2>BYTE KNIGHTS</h2>
+  </div>
+  <div class="mid">
+    <ul class="navbar">
+        <li><a href="#" class="active">Home</a></li>
+        <li><a href="ABOUT US.html">About Us</a></li>
+        <li><a href="https://www.linkedin.com/in/vishwanath-tiwari-779528287?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app">Contact Us</a></li>
+    </ul>
+</div>
+<div class="right">
+    <button class="btn">Call-Us Now</button>
+    <button class="btn">Email-Us <a href="tiwarivishwanath5395@gmail.com"></a></button>
+</div>
+<br>
+<br>
+<br>
+</header>
+<div class="container1">
+    <h1>#Choose a File to Compress</h1>
+
+    <!-- File Section -->
+    <h2>File Compressor</h2>
+    <input type="file" id="file_input" />
+    <button id="compress_file">Compress File</button>
+
+    <!-- Download Compressed File -->
+    <h3>Download Compressed File:</h3>
+    <a id="download_link" style="display:none;">Download Compressed File</a>
+  </div>
+    <script>
+        const fileInput = document.getElementById('file_input');
+        const compressFileBtn = document.getElementById('compress_file');
+        const downloadLink = document.getElementById('download_link');
+
+        // Compress the file and provide a download link
+        compressFileBtn.addEventListener('click', async () => {
+            if (fileInput.files.length === 0) {
+                alert('Please select a file to compress.');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                const fileData = new Uint8Array(event.target.result);
+                
+                // Compress the file using LZMA
+                LZMA.compress(fileData, 1, (result, error) => {
+                    if (error) {
+                        console.error('Compression error:', error);
+                        return;
+                    }
+
+                    // Create a Blob for the compressed data
+                    const compressedBlob = new Blob([new Uint8Array(result)], { type: 'application/octet-stream' });
+
+                    // Create a URL for the compressed file
+                    const url = URL.createObjectURL(compressedBlob);
+
+                    // Set up the download link
+                    downloadLink.href = url;
+                    downloadLink.download = file.name + '.lzma'; // Add .lzma extension
+                    downloadLink.style.display = 'block';
+                    downloadLink.textContent = 'Download Compressed File';
+                });
+            };
+
+            reader.readAsArrayBuffer(file);  // Read the file as a binary buffer
+        });
+    </script>
+
+<div class="container2">
+<h1>#PCA Image Compression and Download</h1>
+    
+<!-- File input -->
+<input type="file" id="imageUpload" accept="image/*" />
+<button id="processBtn">Process Image</button>
+
+<!-- Canvas to display the image -->
+<h2>Reconstructed Image:</h2>
+<canvas id="canvas"></canvas>
+<br>
+<button id="downloadBtn">Download Image</button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/ml-pca@7.0.0/lib/index.js"></script> <!-- PCA Library -->
+
+<script>
+    const imageUpload = document.getElementById('imageUpload');
+    const processBtn = document.getElementById('processBtn');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    let pcaComponents = 100;
+
+    // Convert the image to a matrix of pixel values
+    function getImageMatrix(image) {
+        const width = image.width;
+        const height = image.height;
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const pixels = imageData.data;
+
+        let r = [], g = [], b = [];
+
+        for (let i = 0; i < pixels.length; i += 4) {
+            r.push(pixels[i] / 255);
+            g.push(pixels[i + 1] / 255);
+            b.push(pixels[i + 2] / 255);
+        }
+
+        return { r, g, b, width, height };
+    }
+
+    // Rebuild the image from reconstructed data
+    function rebuildImage(reconstructedR, reconstructedG, reconstructedB, width, height) {
+        let reconstructedImageData = ctx.createImageData(width, height);
+
+        for (let i = 0; i < width * height; i++) {
+            reconstructedImageData.data[i * 4] = reconstructedR[i] * 255; // R
+            reconstructedImageData.data[i * 4 + 1] = reconstructedG[i] * 255; // G
+            reconstructedImageData.data[i * 4 + 2] = reconstructedB[i] * 255; // B
+            reconstructedImageData.data[i * 4 + 3] = 255; // Alpha channel
+        }
+
+        return reconstructedImageData;
+    }
+
+    // Perform PCA and reconstruct the image
+    async function processImage() {
+        const img = new Image();
+        img.src = URL.createObjectURL(imageUpload.files[0]);
+
+        img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+
+            const { r, g, b, width, height } = getImageMatrix(img);
+
+            const pcaR = new PCA(new Array(width * height).fill().map((_, i) => [r[i]]), { nComponents: pcaComponents });
+            const reducedR = pcaR.predict(r);
+            const reconstructedR = pcaR.inverseTransform(reducedR);
+
+            const pcaG = new PCA(new Array(width * height).fill().map((_, i) => [g[i]]), { nComponents: pcaComponents });
+            const reducedG = pcaG.predict(g);
+            const reconstructedG = pcaG.inverseTransform(reducedG);
+
+            const pcaB = new PCA(new Array(width * height).fill().map((_, i) => [b[i]]), { nComponents: pcaComponents });
+            const reducedB = pcaB.predict(b);
+            const reconstructedB = pcaB.inverseTransform(reducedB);
+
+            // Rebuild and draw the image on canvas
+            const reconstructedImageData = rebuildImage(reconstructedR, reconstructedG, reconstructedB, width, height);
+            ctx.putImageData(reconstructedImageData, 0, 0);
+        };
+    }
+
+    // Trigger image processing on button click
+    processBtn.addEventListener('click', processImage);
+
+    // Download the canvas image as PNG
+    downloadBtn.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = 'reconstructed_image.png';
+        link.click();
+    });
+</script>
+
+<div class="container3">
+<h1>#Video Compression Tool</h1>
+    <input type="file" id="videoInput" accept="video/*" />
+    <button id="compressBtn">Compress Video</button>
+    <a id="downloadLink" style="display: none;">Download Compressed Video</a>
+
+    <script>
+        document.getElementById('compressBtn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('videoInput');
+            if (fileInput.files.length === 0) {
+                alert("Please select a video file.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const compressedBlob = await compressVideo(file);
+            const url = URL.createObjectURL(compressedBlob);
+            const downloadLink = document.getElementById('downloadLink');
+            downloadLink.href = url;
+            downloadLink.download = compressed_$;{file.name};
+            downloadLink.style.display = 'block';
+            downloadLink.innerText = 'Download Compressed Video';
+        });
+
+        async function compressVideo(file) {
+            // Create a video element
+            const video = document.createElement('video');
+            video.src = URL.createObjectURL(file);
+
+            return new Promise((resolve) => {
+                video.onloadedmetadata = async () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth / 2; // Resize to half width
+                    canvas.height = video.videoHeight / 2; // Resize to half height
+                    const ctx = canvas.getContext('2d');
+
+                    video.currentTime = 0;
+                    video.play();
+
+                    video.onplay = () => {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        video.pause();
+                        canvas.toBlob((blob) => {
+                            resolve(blob);
+                        }, 'video/webm', 0.7); // Compress to WebM format with 70% quality
+                    };
+                };
+            });
+        }
+    </script>
+    </div>
+</body>
+</html>
